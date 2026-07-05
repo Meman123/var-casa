@@ -10,7 +10,10 @@ import { env } from 'cloudflare:workers';
 export const prerender = false;
 
 const { id } = Astro.params;
-const mes = Astro.url.searchParams.get('mes') ?? mesReferenciaActual();
+// `mesParam` es el mes tal como llegó en la URL (p. ej. desde el histórico).
+// `mesConsulta` es el que usamos para buscar el gasto (con fallback al mes actual).
+const mesParam = Astro.url.searchParams.get('mes');
+const mesConsulta = mesParam ?? mesReferenciaActual();
 let categorias: Categoria[] = [];
 let gasto: Gasto | undefined;
 let error: string | null = null;
@@ -22,7 +25,7 @@ if (!env.N8N_BASE_URL) {
 		const api = crearClienteApi(env.N8N_BASE_URL);
 		const [categoriasRes, gastosDelMes] = await Promise.all([
 			api.obtenerCategorias(),
-			api.obtenerGastos(mes),
+			api.obtenerGastos(mesConsulta),
 		]);
 		categorias = categoriasRes;
 		gasto = gastosDelMes.find((g) => String(g.id) === id);
@@ -40,6 +43,6 @@ if (!env.N8N_BASE_URL) {
 	<div class="contenedor contenedor-angosto">
 		<h1>Editar gasto</h1>
 		{error && <ErrorBanner mensaje={error} />}
-		{!error && gasto && <FormularioGasto categorias={categorias} gasto={gasto} />}
+		{!error && gasto && <FormularioGasto categorias={categorias} gasto={gasto} mes={mesParam ?? undefined} />}
 	</div>
 </BaseLayout>

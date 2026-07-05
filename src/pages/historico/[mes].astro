@@ -19,23 +19,41 @@ let error: string | null = null;
 if (!env.N8N_BASE_URL) {
 	error = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
 } else {
-	try {
-		const api = crearClienteApi(env.N8N_BASE_URL);
-		const [gastosRes, balanceRes, mesesRes] = await Promise.all([
-			api.obtenerGastos(mesReferencia),
-			api.obtenerBalance(mesReferencia),
-			api.obtenerMeses(),
-		]);
-		gastos = gastosRes;
-		balance = balanceRes;
-		mesInfo = mesesRes.find((m) => m.mes_referencia === mesReferencia);
-	} catch (e) {
-		error = e instanceof ApiError ? e.message : 'No se pudo cargar el detalle del mes.';
+	const api = crearClienteApi(env.N8N_BASE_URL);
+	// Se piden por separado (no Promise.all) para que un mes nuevo sin gastos
+	// -no listado en /meses, o con /balance fallando- no tumbe toda la pagina.
+	const [rGastos, rBalance, rMeses] = await Promise.allSettled([
+		api.obtenerGastos(mesReferencia),
+		api.obtenerBalance(mesReferencia),
+		api.obtenerMeses(),
+	]);
+
+	if (rGastos.status === 'fulfilled') gastos = rGastos.value;
+	if (rBalance.status === 'fulfilled') balance = rBalance.value;
+	if (rMeses.status === 'fulfilled') mesInfo = rMeses.value.find((m) => m.mes_referencia === mesReferencia);
+
+	// Los gastos son el dato principal: si esa llamada falla, mostramos el error.
+	// El balance y el estado del mes tienen respaldo por defecto mas abajo.
+	if (rGastos.status === 'rejected') {
+		error = rGastos.reason instanceof ApiError ? rGastos.reason.message : 'No se pudo cargar el detalle del mes.';
 	}
 }
 
-const correspondeMeman = balance ? balance.pagado_meman - balance.diferencia_meman : 0;
-const correspondePaya = balance ? balance.total_gastado - correspondeMeman : 0;
+// Mes nuevo sin gastos: el backend no lo devuelve en /meses. Por defecto lo
+// tratamos como 'abierto' para que se pueda seguir interactuando con el.
+const estadoMes = mesInfo?.estado ?? 'abierto';
+const fechaCierreMes = mesInfo?.fecha_cierre ?? null;
+
+// Si /balance falla o no hay datos, asumimos todo en $0 en vez de ocultar los paneles.
+const balanceSeguro: Balance = balance ?? {
+	total_gastado: 0,
+	pagado_meman: 0,
+	pagado_paya: 0,
+	diferencia_meman: 0,
+};
+
+const correspondeMeman = balanceSeguro.pagado_meman - balanceSeguro.diferencia_meman;
+const correspondePaya = balanceSeguro.total_gastado - correspondeMeman;
 
 const grupos = new Map<string, { icono: string; color: string; gastos: Gasto[] }>();
 for (const g of gastos) {
@@ -47,9 +65,10 @@ for (const g of gastos) {
 const gastosCronologicos = [...gastos].sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
 const siguiente = mesSiguiente(mesReferencia);
-const diferenciaAbs = balance ? Math.abs(Math.round(balance.diferencia_meman)) : 0;
-const deQuien = balance && balance.diferencia_meman < 0 ? 'meman' : 'paya';
+const diferenciaAbs = Math.abs(Math.round(balanceSeguro.diferencia_meman));
+const deQuien = balanceSeguro.diferencia_meman < 0 ? 'meman' : 'paya';
 const aQuien = deQuien === 'meman' ? 'paya' : 'meman';
+const hayDeuda = Math.round(balanceSeguro.diferencia_meman) !== 0;
 ---
 
 <BaseLayout titulo={capitalizar(formatearMesReferencia(mesReferencia))}>
@@ -58,19 +77,15 @@ const aQuien = deQuien === 'meman' ? 'paya' : 'meman';
 
 		{error && <ErrorBanner mensaje={error} />}
 
-		{
-			mesInfo && (
-				<p class="estado-mes texto-muted">
-					{mesInfo.estado === 'cerrado'
-						? `✓ Cerrado${mesInfo.fecha_cierre ? ' el ' + formatearFechaCorta(mesInfo.fecha_cierre) : ''}`
-						: '● Mes abierto'}
-				</p>
-			)
-		}
+		<p class="estado-mes texto-muted">
+			{estadoMes === 'cerrado'
+				? `✓ Cerrado${fechaCierreMes ? ' el ' + formatearFechaCorta(fechaCierreMes) : ''}`
+				: '● Mes abierto'}
+		</p>
 
 		<div class="cuerpo-mes">
 		{
-			balance && (
+			(
 				<section class="tarjeta area-balance">
 					<h2>Balance</h2>
 					<div class="tabla-balance">
@@ -79,15 +94,15 @@ const aQuien = deQuien === 'meman' ? 'paya' : 'meman';
 						<span class="texto-muted">Le correspondía</span>
 
 						<span>Meman</span>
-						<strong>{formatearMonto(balance.pagado_meman)}</strong>
+						<strong>{formatearMonto(balanceSeguro.pagado_meman)}</strong>
 						<strong>{formatearMonto(correspondeMeman)}</strong>
 
 						<span>Paya</span>
-						<strong>{formatearMonto(balance.pagado_paya)}</strong>
+						<strong>{formatearMonto(balanceSeguro.pagado_paya)}</strong>
 						<strong>{formatearMonto(correspondePaya)}</strong>
 					</div>
 					<p class="resultado-balance">
-						{Math.round(balance.diferencia_meman) === 0
+						{!hayDeuda
 							? 'Están a paz y salvo.'
 							: `${deQuien === 'meman' ? 'Meman' : 'Paya'} le debe ${formatearMonto(diferenciaAbs)} a ${aQuien === 'meman' ? 'Meman' : 'Paya'}.`}
 					</p>
@@ -130,29 +145,42 @@ const aQuien = deQuien === 'meman' ? 'paya' : 'meman';
 		}
 
 		{
-			mesInfo?.estado === 'abierto' && balance && (
+			estadoMes === 'abierto' && (
 				<section class="tarjeta area-cierre">
 					<h2>Cerrar mes</h2>
 
-					{Math.round(balance.diferencia_meman) !== 0 && (
-						<div id="bloque-pago">
-							<p class="texto-muted">
-								{deQuien === 'meman' ? 'Meman' : 'Paya'} le debe {formatearMonto(diferenciaAbs)} a{' '}
-								{aQuien === 'meman' ? 'Meman' : 'Paya'}. Puedes registrar el pago antes de cerrar.
-							</p>
-							<form id="form-pago">
-								<input type="hidden" name="de_quien" value={deQuien} />
-								<input type="hidden" name="a_quien" value={aQuien} />
-								<div class="campo">
-									<label for="monto_pago">Monto pagado</label>
-									<input id="monto_pago" name="monto" type="number" min="1" value={diferenciaAbs} />
-								</div>
-								<button type="submit" class="boton boton-secundario">Registrar pago</button>
-							</form>
-						</div>
+					{hayDeuda && (
+						<>
+							<div id="bloque-pago">
+								<p class="texto-muted">
+									{deQuien === 'meman' ? 'Meman' : 'Paya'} le debe {formatearMonto(diferenciaAbs)} a{' '}
+									{aQuien === 'meman' ? 'Meman' : 'Paya'}. Puedes registrar el pago antes de cerrar.
+								</p>
+								<form id="form-pago">
+									<input type="hidden" name="de_quien" value={deQuien} />
+									<input type="hidden" name="a_quien" value={aQuien} />
+									<div class="campo">
+										<label for="monto_pago">Monto pagado</label>
+										<input id="monto_pago" name="monto" type="number" min="1" value={diferenciaAbs} />
+									</div>
+									<button type="submit" class="boton boton-secundario">Registrar pago</button>
+								</form>
+							</div>
+
+							<label class="confirmacion-cierre" for="check-confirmar-cierre">
+								<input type="checkbox" id="check-confirmar-cierre" />
+								Entiendo que cerraré el mes sin registrar el pago de esta deuda
+							</label>
+						</>
 					)}
 
-					<button id="boton-cerrar-mes" type="button" class="boton boton-primario" style="margin-top: var(--espacio-3); width: 100%;">
+					<button
+						id="boton-cerrar-mes"
+						type="button"
+						class="boton boton-primario"
+						style="margin-top: var(--espacio-3); width: 100%;"
+						disabled={hayDeuda}
+					>
 						Cerrar {formatearMesReferencia(mesReferencia)}
 					</button>
 					<p id="mensaje-error-cierre" class="mensaje-error" hidden></p>
@@ -209,6 +237,15 @@ const aQuien = deQuien === 'meman' ? 'paya' : 'meman';
 
 	const botonCerrar = document.getElementById('boton-cerrar-mes');
 	const mensajeErrorCierre = document.getElementById('mensaje-error-cierre');
+
+	// Si hay deuda, el botón de cerrar mes empieza deshabilitado (ver atributo
+	// `disabled` renderizado en el servidor) y solo se habilita si el usuario
+	// marca explícitamente que entiende que va a cerrar sin registrar el pago.
+	const checkConfirmarCierre = document.getElementById('check-confirmar-cierre');
+	checkConfirmarCierre?.addEventListener('change', () => {
+		botonCerrar.disabled = !checkConfirmarCierre.checked;
+	});
+
 	botonCerrar?.addEventListener('click', async () => {
 		if (!confirm('¿Cerrar este mes? No podrás registrar más gastos en él.')) return;
 		botonCerrar.disabled = true;
@@ -353,6 +390,27 @@ const aQuien = deQuien === 'meman' ? 'paya' : 'meman';
 	.mensaje-error {
 		color: var(--color-danger);
 		font-size: 0.85rem;
+	}
+
+	.confirmacion-cierre {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--espacio-2);
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+		margin-top: var(--espacio-3);
+		cursor: pointer;
+	}
+
+	.confirmacion-cierre input {
+		margin-top: 3px;
+		accent-color: var(--color-accent);
+		flex-shrink: 0;
+	}
+
+	#boton-cerrar-mes:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.overlay-celebracion {

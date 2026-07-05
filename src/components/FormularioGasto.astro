@@ -6,9 +6,13 @@ import type { Categoria, Gasto } from '../lib/types';
 interface Props {
 	categorias: Categoria[];
 	gasto?: Gasto;
+	/** Mes (YYYY-MM) del histórico desde el que se llegó a este formulario.
+	 * Si viene definido, al guardar/eliminar/cancelar se vuelve a ese mes
+	 * en vez del inicio. */
+	mes?: string;
 }
 
-const { categorias, gasto } = Astro.props;
+const { categorias, gasto, mes } = Astro.props;
 const esEdicion = Boolean(gasto);
 
 const valores = {
@@ -21,7 +25,7 @@ const valores = {
 };
 ---
 
-<form id="form-gasto" data-modo={esEdicion ? 'editar' : 'crear'} data-id={gasto?.id ?? ''}>
+<form id="form-gasto" data-modo={esEdicion ? 'editar' : 'crear'} data-id={gasto?.id ?? ''} data-mes={mes ?? ''}>
 	<div class="campo">
 		<label for="categoria_id">Categoría</label>
 		<div class="selector-categoria">
@@ -106,6 +110,9 @@ const valores = {
 				</button>
 			)
 		}
+		<button type="button" id="boton-cancelar" class="boton boton-secundario">
+			Cancelar
+		</button>
 	</div>
 </form>
 
@@ -119,7 +126,15 @@ const valores = {
 	const etiquetaSplit = document.getElementById('etiqueta-split') as HTMLSpanElement;
 	const botonGuardar = document.getElementById('boton-guardar') as HTMLButtonElement;
 	const botonEliminar = document.getElementById('boton-eliminar') as HTMLButtonElement | null;
+	const botonCancelar = document.getElementById('boton-cancelar') as HTMLButtonElement;
 	const mensajeError = document.getElementById('mensaje-error-gasto') as HTMLParagraphElement;
+
+	// Si el formulario se abrió desde el histórico de un mes (?mes=YYYY-MM),
+	// volvemos ahí en vez de al inicio al guardar, eliminar o cancelar.
+	const mesOrigen = formulario.dataset.mes;
+	function urlDestino(query: string) {
+		return mesOrigen ? `/historico/${mesOrigen}?gasto=${query}` : `/?gasto=${query}`;
+	}
 
 	function actualizarPreviewCategoria() {
 		const opcion = selectCategoria.selectedOptions[0];
@@ -178,7 +193,7 @@ const valores = {
 			botonGuardar.textContent = 'Guardado ✓';
 			botonGuardar.classList.add('boton-exito');
 			setTimeout(() => {
-				window.location.href = '/?gasto=ok';
+				window.location.href = urlDestino('ok');
 			}, 450);
 		} catch (error) {
 			mostrarError(error instanceof Error ? error.message : 'Error inesperado.');
@@ -197,10 +212,22 @@ const valores = {
 				const json = await respuesta.json().catch(() => ({}));
 				throw new Error(json.error ?? 'No se pudo eliminar el gasto.');
 			}
-			window.location.href = '/?gasto=eliminado';
+			window.location.href = urlDestino('eliminado');
 		} catch (error) {
 			mostrarError(error instanceof Error ? error.message : 'Error inesperado.');
 			botonEliminar.disabled = false;
+		}
+	});
+
+	botonCancelar.addEventListener('click', () => {
+		// Si sabemos a qué mes volver, vamos directo ahí; si no, simplemente
+		// retrocedemos en el historial (o al inicio si no hay historial previo).
+		if (mesOrigen) {
+			window.location.href = `/historico/${mesOrigen}`;
+		} else if (window.history.length > 1) {
+			window.history.back();
+		} else {
+			window.location.href = '/';
 		}
 	});
 </script>

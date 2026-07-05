@@ -151,6 +151,33 @@ if (!env.N8N_BASE_URL) {
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
+	const CLAVE_ACORDEONES_ABIERTOS = 'var-casa:categorias-abiertas';
+
+	// Reabre al cargar la página los <details> que estaban abiertos antes del
+	// último reload (ver `guardarAcordeonesAbiertos`, llamado antes de cada
+	// window.location.reload() más abajo).
+	function reabrirAcordeonesGuardados() {
+		try {
+			const idsAbiertos: string[] = JSON.parse(sessionStorage.getItem(CLAVE_ACORDEONES_ABIERTOS) ?? '[]');
+			idsAbiertos.forEach((id) => {
+				document
+					.querySelector<HTMLDetailsElement>(`.categoria[data-id="${id}"]`)
+					?.setAttribute('open', '');
+			});
+		} catch {
+			// sessionStorage con datos corruptos: lo ignoramos, no es crítico.
+		}
+	}
+
+	function guardarAcordeonesAbiertos() {
+		const idsAbiertos = Array.from(
+			document.querySelectorAll<HTMLDetailsElement>('.categoria[open]'),
+		).map((detalle) => detalle.dataset.id ?? '');
+		sessionStorage.setItem(CLAVE_ACORDEONES_ABIERTOS, JSON.stringify(idsAbiertos));
+	}
+
+	reabrirAcordeonesGuardados();
+
 	function leerFormularioCategoria(formulario: HTMLFormElement) {
 		const datos = new FormData(formulario);
 		const presupuesto = String(datos.get('presupuesto_mensual') ?? '').trim();
@@ -177,6 +204,7 @@ if (!env.N8N_BASE_URL) {
 				});
 				const json = await respuesta.json().catch(() => ({}));
 				if (!respuesta.ok) throw new Error(json.error ?? 'No se pudo guardar la categoría.');
+				guardarAcordeonesAbiertos();
 				window.location.reload();
 			} catch (error) {
 				mostrarMensaje(error instanceof Error ? error.message : 'Error inesperado.');
@@ -197,6 +225,7 @@ if (!env.N8N_BASE_URL) {
 				});
 				const json = await respuesta.json().catch(() => ({}));
 				if (!respuesta.ok) throw new Error(json.error ?? 'No se pudo desactivar la categoría.');
+				guardarAcordeonesAbiertos();
 				window.location.reload();
 			} catch (error) {
 				mostrarMensaje(error instanceof Error ? error.message : 'Error inesperado.');
@@ -218,6 +247,7 @@ if (!env.N8N_BASE_URL) {
 			});
 			const json = await respuesta.json().catch(() => ({}));
 			if (!respuesta.ok) throw new Error(json.error ?? 'No se pudo crear la categoría.');
+			guardarAcordeonesAbiertos();
 			window.location.reload();
 		} catch (error) {
 			mostrarMensaje(error instanceof Error ? error.message : 'Error inesperado.');

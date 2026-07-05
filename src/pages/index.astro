@@ -20,6 +20,7 @@ let presupuestos: PresupuestoCategoria[] = [];
 let gastos: Gasto[] = [];
 let meses: Mes[] = [];
 let errorGeneral: string | null = null;
+let sinGastosEsteMes = false;
 
 if (!env.N8N_BASE_URL) {
 	errorGeneral = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
@@ -41,7 +42,13 @@ if (!env.N8N_BASE_URL) {
 		(r) => r.status === 'rejected',
 	) as PromiseRejectedResult | undefined;
 
-	if (primerError) {
+	// Si /gastos respondió bien y está vacío, un mes nuevo sin gastos puede
+	// hacer que /balance u otros endpoints fallen del lado del backend. Eso
+	// no es un error real: es el estado natural de "todavía no hay nada".
+	// En ese caso no mostramos el banner rojo, sino un empty state amigable.
+	sinGastosEsteMes = rGastos.status === 'fulfilled' && gastos.length === 0;
+
+	if (primerError && !sinGastosEsteMes) {
 		errorGeneral =
 			primerError.reason instanceof ApiError
 				? primerError.reason.message
@@ -72,6 +79,14 @@ const toast = mensajesToast[Astro.url.searchParams.get('gasto') ?? ''] ?? null;
 		<p class="mes-actual texto-muted">{capitalizar(formatearMesReferencia(mes))}</p>
 
 		{errorGeneral && <ErrorBanner mensaje={errorGeneral} />}
+
+		{
+			!errorGeneral && sinGastosEsteMes && (
+				<div class="estado-vacio" role="status">
+					<p>Todo en cero por ahora. ¡Agrega tu primer gasto!</p>
+				</div>
+			)
+		}
 
 		{toast && <div class="toast" role="status">✓ {toast}</div>}
 
@@ -169,6 +184,20 @@ const toast = mensajesToast[Astro.url.searchParams.get('gasto') ?? ''] ?? null;
 	.boton-flotante {
 		display: block;
 		text-align: center;
+	}
+
+	.estado-vacio {
+		background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-elevated));
+		border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+		border-radius: var(--radio-chico);
+		padding: var(--espacio-3) var(--espacio-4);
+		margin-bottom: var(--espacio-3);
+	}
+
+	.estado-vacio p {
+		margin: 0;
+		font-size: 0.9rem;
+		font-weight: 600;
 	}
 
 	.toast {
