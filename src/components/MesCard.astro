@@ -1,0 +1,50 @@
+---
+import { formatearMesReferencia, formatearMonto, capitalizar } from '../lib/format';
+import type { Mes } from '../lib/types';
+
+interface Props {
+	mes: Mes;
+}
+const { mes } = Astro.props;
+---
+
+<a href={`/historico/${mes.mes_referencia}`} class="tarjeta mes-card">
+	<div>
+		<p class="mes-nombre">{capitalizar(formatearMesReferencia(mes.mes_referencia))}</p>
+		<p class="texto-muted mes-estado">
+			{mes.estado === 'cerrado' ? '✓ Cerrado' : '● Abierto'}
+		</p>
+	</div>
+	<span class="mes-total">{formatearMonto(mes.total_gastado)}</span>
+</a>
+
+<style>
+	.mes-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--espacio-3);
+		text-decoration: none;
+		color: var(--color-text);
+		transition: border-color 0.15s ease, transform 0.15s ease;
+	}
+
+	.mes-card:hover {
+		border-color: var(--color-accent);
+		transform: translateY(-1px);
+	}
+
+	.mes-nombre {
+		margin: 0;
+		font-weight: 700;
+	}
+
+	.mes-estado {
+		margin: 2px 0 0;
+		font-size: 0.78rem;
+	}
+
+	.mes-total {
+		font-weight: 700;
+	}
+</style>

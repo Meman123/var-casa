@@ -1,0 +1,103 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+export const prerender = false;
+---
+
+<BaseLayout titulo="Iniciar sesión" ocultarNav>
+	<div class="contenedor pantalla-login">
+		<div class="tarjeta">
+			<h1>var-casa</h1>
+			<p class="texto-muted">Ingresa la contraseña compartida para continuar.</p>
+
+			<form id="form-login">
+				<label for="password" class="visualmente-oculto">Contraseña</label>
+				<input
+					id="password"
+					name="password"
+					type="password"
+					autocomplete="current-password"
+					placeholder="Contraseña"
+					required
+				/>
+				<button type="submit" class="boton boton-primario" id="boton-login">Entrar</button>
+				<p id="mensaje-error" class="mensaje-error" hidden></p>
+			</form>
+		</div>
+	</div>
+</BaseLayout>
+
+<script>
+	const formulario = document.getElementById('form-login') as HTMLFormElement;
+	const boton = document.getElementById('boton-login') as HTMLButtonElement;
+	const mensajeError = document.getElementById('mensaje-error') as HTMLParagraphElement;
+
+	formulario.addEventListener('submit', async (evento) => {
+		evento.preventDefault();
+		mensajeError.hidden = true;
+		boton.disabled = true;
+		boton.textContent = 'Entrando…';
+
+		const datos = new FormData(formulario);
+		const password = String(datos.get('password') ?? '');
+
+		try {
+			const respuesta = await fetch('/api/login', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password }),
+			});
+			const json = await respuesta.json();
+
+			if (!respuesta.ok) {
+				throw new Error(json.error ?? 'No se pudo iniciar sesion.');
+			}
+
+			if (!json.valido) {
+				throw new Error('Contraseña incorrecta.');
+			}
+
+			window.location.href = '/';
+		} catch (error) {
+			mensajeError.textContent = error instanceof Error ? error.message : 'Error inesperado.';
+			mensajeError.hidden = false;
+			boton.disabled = false;
+			boton.textContent = 'Entrar';
+		}
+	});
+</script>
+
+<style>
+	.pantalla-login {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: calc(100dvh - 80px);
+	}
+
+	.tarjeta {
+		width: 100%;
+		max-width: 360px;
+		text-align: center;
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--espacio-3);
+		margin-top: var(--espacio-4);
+	}
+
+	input {
+		background: var(--color-bg-elevated-2);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radio-chico);
+		padding: 12px 14px;
+	}
+
+	.mensaje-error {
+		color: var(--color-danger);
+		font-size: 0.85rem;
+		margin: 0;
+	}
+</style>

@@ -1,0 +1,39 @@
+---
+interface Props {
+	mesesConsecutivos: number;
+	mesActualConGasto: boolean;
+}
+const { mesesConsecutivos, mesActualConGasto } = Astro.props;
+
+if (mesesConsecutivos === 0 && !mesActualConGasto) {
+	// No hay nada que mostrar todavia.
+}
+---
+
+{
+	(mesesConsecutivos > 0 || mesActualConGasto) && (
+		<div class="racha">
+			<span aria-hidden="true">🔥</span>
+			<span>
+				{mesesConsecutivos > 0
+					? `${mesesConsecutivos} ${mesesConsecutivos === 1 ? 'mes' : 'meses'} seguidos al día`
+					: 'Este mes ya tiene gastos registrados'}
+			</span>
+		</div>
+	)
+}
+
+<style>
+	.racha {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		background: color-mix(in srgb, var(--color-warning) 18%, var(--color-bg-elevated));
+		border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+		border-radius: 999px;
+		padding: 6px 14px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		margin-bottom: var(--espacio-4);
+	}
+</style>

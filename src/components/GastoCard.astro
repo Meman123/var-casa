@@ -1,0 +1,85 @@
+---
+import { formatearFechaCorta, formatearMonto } from '../lib/format';
+import IconoCategoria from './IconoCategoria.astro';
+import type { Gasto } from '../lib/types';
+
+interface Props {
+	gasto: Gasto;
+	enlazable?: boolean;
+}
+
+const { gasto, enlazable = true } = Astro.props;
+
+const etiquetaPagador: Record<string, string> = {
+	meman: 'Meman',
+	paya: 'Paya',
+	conjunto: 'Conjunto',
+};
+---
+
+<a
+	href={enlazable ? `/gastos/${gasto.id}/editar?mes=${gasto.mes_referencia}` : undefined}
+	class:list={['gasto', { 'no-enlace': !enlazable }]}
+>
+	<IconoCategoria icono={gasto.icono} color={gasto.color} />
+	<div class="info">
+		<p class="descripcion">{gasto.descripcion}</p>
+		<p class="meta texto-muted">
+			{formatearFechaCorta(gasto.fecha)} · {etiquetaPagador[gasto.pagado_por]}
+		</p>
+	</div>
+	<span class="monto">{formatearMonto(gasto.monto)}</span>
+</a>
+
+<style>
+	.gasto {
+		display: flex;
+		align-items: center;
+		gap: var(--espacio-3);
+		padding: var(--espacio-2) 0;
+		text-decoration: none;
+		color: var(--color-text);
+	}
+
+	.gasto.no-enlace {
+		pointer-events: none;
+	}
+
+	@media (hover: hover) {
+		.gasto {
+			border-radius: var(--radio-chico);
+			margin: 0 calc(-1 * var(--espacio-2));
+			padding: var(--espacio-2);
+			transition: background-color 0.15s ease;
+		}
+
+		.gasto:not(.no-enlace):hover {
+			background: var(--color-bg-elevated-2);
+		}
+	}
+
+	.info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.descripcion {
+		margin: 0;
+		font-weight: 600;
+		font-size: 0.92rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.meta {
+		margin: 2px 0 0;
+		font-size: 0.75rem;
+	}
+
+	.monto {
+		font-weight: 700;
+		font-size: 0.92rem;
+		white-space: nowrap;
+	}
+</style>

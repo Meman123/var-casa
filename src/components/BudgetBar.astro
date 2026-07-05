@@ -1,0 +1,125 @@
+---
+import { formatearMonto } from '../lib/format';
+import IconoCategoria from './IconoCategoria.astro';
+
+interface Props {
+	nombre: string;
+	icono: string;
+	color: string;
+	gastado: number;
+	presupuesto: number;
+	porcentaje: number;
+}
+
+const { nombre, icono, color, gastado, presupuesto, porcentaje } = Astro.props;
+
+const porcentajeVisual = Math.min(porcentaje, 100);
+let estado: 'ok' | 'alerta' | 'superado' = 'ok';
+if (porcentaje > 100) estado = 'superado';
+else if (porcentaje >= 80) estado = 'alerta';
+---
+
+<div class="fila-presupuesto">
+	<IconoCategoria icono={icono} color={color} tamano="chico" />
+	<div class="detalle">
+		<div class="cabecera">
+			<span class="nombre">{nombre}</span>
+			<span class="montos texto-muted">
+				{formatearMonto(gastado)} / {formatearMonto(presupuesto)}
+			</span>
+		</div>
+		<div class="pista">
+			<div class:list={['barra', estado]} data-ancho={porcentajeVisual} style="width: 0%"></div>
+		</div>
+	</div>
+	{estado === 'superado' && <span class="badge-superado" title="Presupuesto superado">!</span>}
+</div>
+
+<script>
+	// Anima cada barra desde 0 hasta su ancho real al cargar la pagina.
+	requestAnimationFrame(() => {
+		document.querySelectorAll<HTMLElement>('.barra[data-ancho]').forEach((barra) => {
+			const ancho = barra.dataset.ancho ?? '0';
+			requestAnimationFrame(() => {
+				barra.style.width = `${ancho}%`;
+			});
+		});
+	});
+</script>
+
+<style>
+	.fila-presupuesto {
+		display: flex;
+		align-items: center;
+		gap: var(--espacio-3);
+		padding: var(--espacio-2) 0;
+	}
+
+	.detalle {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.cabecera {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: var(--espacio-2);
+		margin-bottom: 6px;
+	}
+
+	.nombre {
+		font-weight: 600;
+		font-size: 0.9rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.montos {
+		font-size: 0.78rem;
+		white-space: nowrap;
+	}
+
+	.pista {
+		background: var(--color-bg-elevated-2);
+		border-radius: 999px;
+		height: 8px;
+		overflow: hidden;
+	}
+
+	.barra {
+		height: 100%;
+		border-radius: 999px;
+		transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+		background: var(--color-accent);
+	}
+
+	.barra.alerta {
+		background: var(--color-warning);
+	}
+
+	.barra.superado {
+		background: var(--color-danger);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.barra {
+			transition: none;
+		}
+	}
+
+	.badge-superado {
+		width: 18px;
+		height: 18px;
+		border-radius: 999px;
+		background: var(--color-danger);
+		color: #fff;
+		font-size: 0.7rem;
+		font-weight: 800;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+</style>

@@ -1,0 +1,48 @@
+---
+// Las categorías guardan el nombre del ícono como string ("shopping-cart", "home", ...).
+// Aquí se traduce a SVG real vía el mapa central de src/lib/iconos.ts.
+import { svgIcono } from '../lib/iconos';
+
+interface Props {
+	icono: string;
+	color: string;
+	tamano?: 'chico' | 'normal' | 'grande';
+}
+const { icono, color, tamano = 'normal' } = Astro.props;
+---
+
+<span
+	class:list={['burbuja', tamano]}
+	style={`background: color-mix(in srgb, ${color} 22%, transparent); color: ${color};`}
+	set:html={svgIcono(icono)}
+/>
+
+<style>
+	.burbuja {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 999px;
+		flex-shrink: 0;
+	}
+
+	.burbuja :global(svg) {
+		width: 55%;
+		height: 55%;
+	}
+
+	.chico {
+		width: 28px;
+		height: 28px;
+	}
+
+	.normal {
+		width: 40px;
+		height: 40px;
+	}
+
+	.grande {
+		width: 56px;
+		height: 56px;
+	}
+</style>

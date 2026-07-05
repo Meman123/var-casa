@@ -1,0 +1,212 @@
+/* Paleta y variables compartidas. Modo oscuro por defecto, modo claro via
+   data-theme="light" (toggle manual) o prefers-color-scheme como fallback. */
+
+:root {
+	--color-accent: #0f9d71;
+	--color-accent-dim: #0c7a58;
+	--color-warning: #d9a441;
+	--color-danger: #d9534f;
+
+	--color-bg: #1c1917;
+	--color-bg-elevated: #262220;
+	--color-bg-elevated-2: #302b28;
+	--color-border: #3d3733;
+	--color-text: #f3ede7;
+	--color-text-muted: #a89e97;
+	--color-text-on-accent: #08150f;
+
+	--radio: 14px;
+	--radio-chico: 8px;
+	--sombra: 0 4px 16px rgba(0, 0, 0, 0.25);
+
+	--espacio-1: 4px;
+	--espacio-2: 8px;
+	--espacio-3: 12px;
+	--espacio-4: 16px;
+	--espacio-5: 24px;
+	--espacio-6: 32px;
+
+	--fuente: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+	color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+	--color-bg: #faf6f1;
+	--color-bg-elevated: #ffffff;
+	--color-bg-elevated-2: #f1ebe3;
+	--color-border: #e6ddd2;
+	--color-text: #2a2420;
+	--color-text-muted: #7a7069;
+	--color-text-on-accent: #f3fff9;
+
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme='dark']) {
+		--color-bg: #faf6f1;
+		--color-bg-elevated: #ffffff;
+		--color-bg-elevated-2: #f1ebe3;
+		--color-border: #e6ddd2;
+		--color-text: #2a2420;
+		--color-text-muted: #7a7069;
+		--color-text-on-accent: #f3fff9;
+
+		color-scheme: light;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--fuente);
+	font-size: 16px;
+	line-height: 1.45;
+	-webkit-font-smoothing: antialiased;
+	/* Cifras tabulares: los montos alinean bien en listas y tablas. */
+	font-variant-numeric: tabular-nums;
+	transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	margin: 0 0 var(--espacio-2);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+/* Jerarquía tipográfica consistente entre pantallas. */
+h1 {
+	font-size: 1.45rem;
+}
+
+h2 {
+	font-size: 1.05rem;
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+p {
+	margin: 0 0 var(--espacio-3);
+}
+
+a {
+	color: inherit;
+}
+
+button,
+input,
+select {
+	font-family: inherit;
+	font-size: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+}
+
+.tarjeta {
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radio);
+	padding: var(--espacio-4);
+}
+
+.boton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--espacio-2);
+	border: none;
+	border-radius: var(--radio-chico);
+	padding: 12px 20px;
+	font-weight: 600;
+	transition: transform 0.1s ease, opacity 0.15s ease;
+}
+
+.boton:active {
+	transform: scale(0.97);
+}
+
+.boton-primario {
+	background: var(--color-accent);
+	color: var(--color-text-on-accent);
+}
+
+.boton-primario:hover {
+	background: var(--color-accent-dim);
+}
+
+.boton-secundario {
+	background: var(--color-bg-elevated-2);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+}
+
+.boton-secundario:hover {
+	border-color: var(--color-text-muted);
+}
+
+.boton-peligro {
+	background: transparent;
+	color: var(--color-danger);
+	border: 1px solid var(--color-danger);
+}
+
+.boton-peligro:hover {
+	background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.boton:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.texto-muted {
+	color: var(--color-text-muted);
+}
+
+.contenedor {
+	max-width: 640px;
+	margin: 0 auto;
+	padding: var(--espacio-4);
+}
+
+@media (min-width: 900px) {
+	.contenedor {
+		max-width: 1080px;
+		padding: var(--espacio-4) var(--espacio-6) var(--espacio-6);
+	}
+
+	/* Para pantallas de formulario (login, agregar/editar gasto):
+	   en desktop no tiene sentido estirarlas a todo el ancho. */
+	.contenedor-angosto {
+		max-width: 560px;
+	}
+}
+
+.visualmente-oculto {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+}

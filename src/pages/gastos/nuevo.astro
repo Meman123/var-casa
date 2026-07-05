@@ -1,0 +1,36 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import FormularioGasto from '../../components/FormularioGasto.astro';
+import ErrorBanner from '../../components/ErrorBanner.astro';
+import { crearClienteApi, ApiError } from '../../lib/api';
+import type { Categoria } from '../../lib/types';
+import { env } from 'cloudflare:workers';
+
+export const prerender = false;
+
+let categorias: Categoria[] = [];
+let error: string | null = null;
+
+if (!env.N8N_BASE_URL) {
+	error = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
+} else {
+	try {
+		categorias = await crearClienteApi(env.N8N_BASE_URL).obtenerCategorias();
+	} catch (e) {
+		error = e instanceof ApiError ? e.message : 'No se pudieron cargar las categorías.';
+	}
+}
+---
+
+<BaseLayout titulo="Agregar gasto">
+	<div class="contenedor contenedor-angosto">
+		<h1>Agregar gasto</h1>
+		{error && <ErrorBanner mensaje={error} />}
+		{!error && categorias.length === 0 && (
+			<p class="texto-muted">
+				No hay categorías activas todavía. Crea una en <a href="/configuracion">Configuración</a>.
+			</p>
+		)}
+		{!error && categorias.length > 0 && <FormularioGasto categorias={categorias} />}
+	</div>
+</BaseLayout>

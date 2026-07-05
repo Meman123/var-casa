@@ -1,0 +1,387 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import IconoCategoria from '../../components/IconoCategoria.astro';
+import ErrorBanner from '../../components/ErrorBanner.astro';
+import { crearClienteApi, ApiError } from '../../lib/api';
+import { formatearMonto } from '../../lib/format';
+import { NOMBRES_ICONOS, ETIQUETAS_ICONOS, ICONO_FALLBACK, svgIcono } from '../../lib/iconos';
+import type { Categoria } from '../../lib/types';
+import { env } from 'cloudflare:workers';
+
+export const prerender = false;
+
+let categorias: Categoria[] = [];
+let error: string | null = null;
+
+if (!env.N8N_BASE_URL) {
+	error = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
+} else {
+	try {
+		categorias = await crearClienteApi(env.N8N_BASE_URL).obtenerCategorias();
+	} catch (e) {
+		error = e instanceof ApiError ? e.message : 'No se pudieron cargar las categorías.';
+	}
+}
+---
+
+<BaseLayout titulo="Configuración">
+	<div class="contenedor">
+		<h1>Categorías</h1>
+		{error && <ErrorBanner mensaje={error} />}
+		<p id="mensaje-global" class="mensaje-error" hidden></p>
+
+		<div class="columnas-config">
+		<div id="lista-categorias">
+			{
+				categorias.map((c) => (
+					<details class="tarjeta categoria" data-id={c.id}>
+						<summary>
+							<IconoCategoria icono={c.icono} color={c.color} tamano="chico" />
+							<span class="nombre-cat">{c.nombre}</span>
+							<span class="texto-muted tipo-cat">{c.tipo}</span>
+							{c.presupuesto_mensual != null && (
+								<span class="texto-muted">{formatearMonto(c.presupuesto_mensual)}</span>
+							)}
+						</summary>
+
+						<form class="form-categoria" data-modo="editar" data-id={c.id}>
+							<div class="campo">
+								<label>Nombre</label>
+								<input name="nombre" type="text" required value={c.nombre} />
+							</div>
+							<div class="fila">
+								<div class="campo">
+									<label>Tipo</label>
+									<select name="tipo">
+										<option value="fija" selected={c.tipo === 'fija'}>Fija</option>
+										<option value="variable" selected={c.tipo === 'variable'}>Variable</option>
+									</select>
+								</div>
+								<div class="campo">
+									<label>Color</label>
+									<input name="color" type="color" value={c.color} />
+								</div>
+							</div>
+							<div class="campo">
+								<label>Ícono</label>
+								<div class="picker-iconos">
+									{NOMBRES_ICONOS.map((n) => (
+										<label class="opcion-icono" title={ETIQUETAS_ICONOS[n] ?? n}>
+											<input
+												type="radio"
+												name="icono"
+												value={n}
+												required
+												checked={n === (NOMBRES_ICONOS.includes(c.icono) ? c.icono : ICONO_FALLBACK)}
+											/>
+											<span class="muestra" set:html={svgIcono(n)} />
+											<span class="visualmente-oculto">{ETIQUETAS_ICONOS[n] ?? n}</span>
+										</label>
+									))}
+								</div>
+							</div>
+							<div class="campo">
+								<label>Presupuesto mensual</label>
+								<input name="presupuesto_mensual" type="number" min="0" placeholder="Sin presupuesto" value={c.presupuesto_mensual ?? ''} />
+							</div>
+							<div class="acciones">
+								<button type="submit" class="boton boton-primario">Guardar</button>
+								<button type="button" class="boton boton-peligro" data-accion="desactivar">Desactivar</button>
+							</div>
+						</form>
+					</details>
+				))
+			}
+		</div>
+
+		<section class="tarjeta seccion">
+			<h2>Nueva categoría</h2>
+			<form id="form-nueva-categoria">
+				<div class="campo">
+					<label>Nombre</label>
+					<input name="nombre" type="text" required placeholder="Ej: Mercado" />
+				</div>
+				<div class="fila">
+					<div class="campo">
+						<label>Tipo</label>
+						<select name="tipo">
+							<option value="fija">Fija</option>
+							<option value="variable" selected>Variable</option>
+						</select>
+					</div>
+					<div class="campo">
+						<label>Color</label>
+						<input name="color" type="color" value="#0f9d71" />
+					</div>
+				</div>
+				<div class="campo">
+					<label>Ícono</label>
+					<div class="picker-iconos">
+						{NOMBRES_ICONOS.map((n) => (
+							<label class="opcion-icono" title={ETIQUETAS_ICONOS[n] ?? n}>
+								<input type="radio" name="icono" value={n} required checked={n === 'shopping-cart'} />
+								<span class="muestra" set:html={svgIcono(n)} />
+								<span class="visualmente-oculto">{ETIQUETAS_ICONOS[n] ?? n}</span>
+							</label>
+						))}
+					</div>
+				</div>
+				<div class="campo">
+					<label>Presupuesto mensual</label>
+					<input name="presupuesto_mensual" type="number" min="0" placeholder="Opcional" />
+				</div>
+				<button type="submit" class="boton boton-primario">Crear categoría</button>
+			</form>
+		</section>
+
+		</div>
+
+		<form method="POST" action="/api/logout" class="seccion form-salir">
+			<button type="submit" class="boton boton-secundario boton-salir">Cerrar sesión</button>
+		</form>
+	</div>
+</BaseLayout>
+
+<script>
+	const mensajeGlobal = document.getElementById('mensaje-global') as HTMLParagraphElement;
+
+	function mostrarMensaje(texto: string) {
+		mensajeGlobal.textContent = texto;
+		mensajeGlobal.hidden = false;
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
+	function leerFormularioCategoria(formulario: HTMLFormElement) {
+		const datos = new FormData(formulario);
+		const presupuesto = String(datos.get('presupuesto_mensual') ?? '').trim();
+		return {
+			nombre: String(datos.get('nombre')),
+			tipo: String(datos.get('tipo')),
+			icono: String(datos.get('icono')),
+			color: String(datos.get('color')),
+			presupuesto_mensual: presupuesto === '' ? null : Number(presupuesto),
+		};
+	}
+
+	document.querySelectorAll<HTMLFormElement>('.form-categoria').forEach((formulario) => {
+		formulario.addEventListener('submit', async (evento) => {
+			evento.preventDefault();
+			const id = Number(formulario.dataset.id);
+			const boton = formulario.querySelector('button[type="submit"]') as HTMLButtonElement;
+			boton.disabled = true;
+			try {
+				const respuesta = await fetch('/api/categorias', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ id, activa: true, ...leerFormularioCategoria(formulario) }),
+				});
+				const json = await respuesta.json().catch(() => ({}));
+				if (!respuesta.ok) throw new Error(json.error ?? 'No se pudo guardar la categoría.');
+				window.location.reload();
+			} catch (error) {
+				mostrarMensaje(error instanceof Error ? error.message : 'Error inesperado.');
+				boton.disabled = false;
+			}
+		});
+
+		const botonDesactivar = formulario.querySelector('[data-accion="desactivar"]') as HTMLButtonElement;
+		botonDesactivar.addEventListener('click', async () => {
+			if (!confirm('¿Desactivar esta categoría? No se borra el histórico, pero dejará de estar disponible para gastos nuevos.')) return;
+			const id = Number(formulario.dataset.id);
+			botonDesactivar.disabled = true;
+			try {
+				const respuesta = await fetch('/api/categorias', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ id, activa: false, ...leerFormularioCategoria(formulario) }),
+				});
+				const json = await respuesta.json().catch(() => ({}));
+				if (!respuesta.ok) throw new Error(json.error ?? 'No se pudo desactivar la categoría.');
+				window.location.reload();
+			} catch (error) {
+				mostrarMensaje(error instanceof Error ? error.message : 'Error inesperado.');
+				botonDesactivar.disabled = false;
+			}
+		});
+	});
+
+	const formNueva = document.getElementById('form-nueva-categoria') as HTMLFormElement;
+	formNueva.addEventListener('submit', async (evento) => {
+		evento.preventDefault();
+		const boton = formNueva.querySelector('button') as HTMLButtonElement;
+		boton.disabled = true;
+		try {
+			const respuesta = await fetch('/api/categorias', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(leerFormularioCategoria(formNueva)),
+			});
+			const json = await respuesta.json().catch(() => ({}));
+			if (!respuesta.ok) throw new Error(json.error ?? 'No se pudo crear la categoría.');
+			window.location.reload();
+		} catch (error) {
+			mostrarMensaje(error instanceof Error ? error.message : 'Error inesperado.');
+			boton.disabled = false;
+		}
+	});
+</script>
+
+<style>
+	.categoria summary {
+		display: flex;
+		align-items: center;
+		gap: var(--espacio-3);
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.categoria summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.nombre-cat {
+		font-weight: 600;
+		flex: 1;
+	}
+
+	.tipo-cat {
+		text-transform: capitalize;
+		font-size: 0.78rem;
+	}
+
+	.categoria {
+		margin-bottom: var(--espacio-3);
+	}
+
+	.form-categoria {
+		margin-top: var(--espacio-4);
+		padding-top: var(--espacio-4);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.campo {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin-bottom: var(--espacio-3);
+	}
+
+	.fila {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--espacio-3);
+	}
+
+	label {
+		font-size: 0.78rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	input,
+	select {
+		background: var(--color-bg-elevated-2);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radio-chico);
+		padding: 10px 12px;
+		width: 100%;
+	}
+
+	input[type='color'] {
+		padding: 4px;
+		height: 42px;
+	}
+
+	.picker-iconos {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--espacio-2);
+	}
+
+	.opcion-icono {
+		position: relative;
+	}
+
+	.opcion-icono input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.opcion-icono .muestra {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radio-chico);
+		background: var(--color-bg-elevated-2);
+		border: 1px solid var(--color-border);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+	}
+
+	.opcion-icono .muestra:hover {
+		color: var(--color-text);
+	}
+
+	.opcion-icono .muestra:active {
+		transform: scale(0.94);
+	}
+
+	.opcion-icono .muestra :global(svg) {
+		width: 20px;
+		height: 20px;
+	}
+
+	.opcion-icono input:checked + .muestra {
+		background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+		border-color: var(--color-accent);
+		color: var(--color-accent);
+	}
+
+	.opcion-icono input:focus-visible + .muestra {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	.acciones {
+		display: flex;
+		gap: var(--espacio-2);
+	}
+
+	.seccion {
+		margin-top: var(--espacio-5);
+	}
+
+	@media (min-width: 900px) {
+		.columnas-config {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: var(--espacio-5);
+			align-items: start;
+		}
+
+		.columnas-config .seccion {
+			margin-top: 0;
+		}
+
+		.form-salir {
+			max-width: 320px;
+		}
+	}
+
+	.boton-salir {
+		width: 100%;
+	}
+
+	.mensaje-error {
+		color: var(--color-danger);
+		background: color-mix(in srgb, var(--color-danger) 15%, var(--color-bg-elevated));
+		border: 1px solid var(--color-danger);
+		border-radius: var(--radio-chico);
+		padding: var(--espacio-2) var(--espacio-3);
+		font-size: 0.85rem;
+	}
+</style>

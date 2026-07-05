@@ -1,17 +1,210 @@
 ---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BalanceCard from '../components/BalanceCard.astro';
+import BudgetBar from '../components/BudgetBar.astro';
+import GastoCard from '../components/GastoCard.astro';
+import StreakBadge from '../components/StreakBadge.astro';
+import ErrorBanner from '../components/ErrorBanner.astro';
+import { crearClienteApi, ApiError } from '../lib/api';
+import { calcularRacha } from '../lib/streak';
+import { mesReferenciaActual, capitalizar, formatearMesReferencia } from '../lib/format';
+import type { Balance, Gasto, Mes, PresupuestoCategoria } from '../lib/types';
+import { env } from 'cloudflare:workers';
 
+export const prerender = false;
+
+const mes = mesReferenciaActual();
+
+let balance: Balance | null = null;
+let presupuestos: PresupuestoCategoria[] = [];
+let gastos: Gasto[] = [];
+let meses: Mes[] = [];
+let errorGeneral: string | null = null;
+
+if (!env.N8N_BASE_URL) {
+	errorGeneral = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
+} else {
+	const api = crearClienteApi(env.N8N_BASE_URL);
+	const [rBalance, rPresupuestos, rGastos, rMeses] = await Promise.allSettled([
+		api.obtenerBalance(mes),
+		api.obtenerPresupuestos(mes),
+		api.obtenerGastos(mes),
+		api.obtenerMeses(),
+	]);
+
+	if (rBalance.status === 'fulfilled') balance = rBalance.value;
+	if (rPresupuestos.status === 'fulfilled') presupuestos = rPresupuestos.value;
+	if (rGastos.status === 'fulfilled') gastos = rGastos.value;
+	if (rMeses.status === 'fulfilled') meses = rMeses.value;
+
+	const primerError = [rBalance, rPresupuestos, rGastos, rMeses].find(
+		(r) => r.status === 'rejected',
+	) as PromiseRejectedResult | undefined;
+
+	if (primerError) {
+		errorGeneral =
+			primerError.reason instanceof ApiError
+				? primerError.reason.message
+				: 'No se pudo cargar toda la informacion del mes.';
+	}
+}
+
+const presupuestosConDatos = presupuestos.filter(
+	(p): p is PresupuestoCategoria & { porcentaje_usado: number } => p.porcentaje_usado !== null,
+);
+
+const gastosRecientes = [...gastos]
+	.sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+	.slice(0, 8);
+
+const racha = calcularRacha(meses);
+
+// Toast de confirmación tras guardar/eliminar un gasto (?gasto=ok|eliminado).
+const mensajesToast: Record<string, string> = {
+	ok: 'Gasto guardado',
+	eliminado: 'Gasto eliminado',
+};
+const toast = mensajesToast[Astro.url.searchParams.get('gasto') ?? ''] ?? null;
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout titulo="Inicio">
+	<div class="contenedor">
+		<p class="mes-actual texto-muted">{capitalizar(formatearMesReferencia(mes))}</p>
+
+		{errorGeneral && <ErrorBanner mensaje={errorGeneral} />}
+
+		{toast && <div class="toast" role="status">✓ {toast}</div>}
+
+		<StreakBadge mesesConsecutivos={racha.mesesConsecutivos} mesActualConGasto={racha.mesActualConGasto} />
+
+		<div class="tablero">
+			<div class="col">
+				{balance && <BalanceCard balance={balance} />}
+
+				{
+					presupuestosConDatos.length > 0 && (
+						<section class="tarjeta">
+							<h2>Presupuestos</h2>
+							{presupuestosConDatos.map((p) => (
+								<BudgetBar
+									nombre={p.nombre}
+									icono={p.icono}
+									color={p.color}
+									gastado={p.gastado}
+									presupuesto={p.presupuesto_mensual}
+									porcentaje={p.porcentaje_usado}
+								/>
+							))}
+						</section>
+					)
+				}
+			</div>
+
+			<div class="col">
+				<section class="tarjeta">
+					<div class="cabecera-seccion">
+						<h2>Gastos recientes</h2>
+						<a href="/historico" class="ver-todos">Ver mes completo</a>
+					</div>
+					{
+						gastosRecientes.length === 0 ? (
+							<p class="texto-muted">Todavía no hay gastos registrados este mes.</p>
+						) : (
+							gastosRecientes.map((g) => <GastoCard gasto={g} />)
+						)
+					}
+				</section>
+
+				<a href="/gastos/nuevo" class="boton boton-primario boton-flotante">
+					+ Agregar gasto
+				</a>
+			</div>
+		</div>
+	</div>
+</BaseLayout>
+
+<style>
+	.mes-actual {
+		text-transform: capitalize;
+		font-weight: 600;
+		margin-bottom: var(--espacio-3);
+	}
+
+	.tablero,
+	.col {
+		display: flex;
+		flex-direction: column;
+		gap: var(--espacio-4);
+	}
+
+	@media (min-width: 900px) {
+		.tablero {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: var(--espacio-5);
+			align-items: start;
+		}
+	}
+
+	.tarjeta h2 {
+		font-size: 1rem;
+	}
+
+	.cabecera-seccion {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+	}
+
+	.ver-todos {
+		font-size: 0.8rem;
+		color: var(--color-accent);
+		text-decoration: none;
+	}
+
+	.ver-todos:hover {
+		text-decoration: underline;
+	}
+
+	.boton-flotante {
+		display: block;
+		text-align: center;
+	}
+
+	.toast {
+		background: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-elevated));
+		border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+		color: var(--color-text);
+		border-radius: var(--radio-chico);
+		padding: var(--espacio-2) var(--espacio-3);
+		font-size: 0.88rem;
+		font-weight: 600;
+		margin-bottom: var(--espacio-3);
+		animation:
+			toast-entra 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+			toast-sale 0.5s ease 3s forwards;
+	}
+
+	@keyframes toast-entra {
+		from {
+			opacity: 0;
+			transform: translateY(-6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes toast-sale {
+		to {
+			opacity: 0;
+			visibility: hidden;
+			margin-bottom: 0;
+			max-height: 0;
+			padding-top: 0;
+			padding-bottom: 0;
+			border-width: 0;
+		}
+	}
+</style>

@@ -1,0 +1,59 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import MesCard from '../../components/MesCard.astro';
+import ErrorBanner from '../../components/ErrorBanner.astro';
+import { crearClienteApi, ApiError } from '../../lib/api';
+import type { Mes } from '../../lib/types';
+import { env } from 'cloudflare:workers';
+
+export const prerender = false;
+
+let meses: Mes[] = [];
+let error: string | null = null;
+
+if (!env.N8N_BASE_URL) {
+	error = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
+} else {
+	try {
+		meses = await crearClienteApi(env.N8N_BASE_URL).obtenerMeses();
+	} catch (e) {
+		error = e instanceof ApiError ? e.message : 'No se pudo cargar el histórico de meses.';
+	}
+}
+---
+
+<BaseLayout titulo="Histórico">
+	<div class="contenedor">
+		<h1>Histórico de meses</h1>
+		{error && <ErrorBanner mensaje={error} />}
+		{!error && meses.length === 0 && <p class="texto-muted">Todavía no hay meses registrados.</p>}
+		{
+			!error && meses.length > 0 && (
+				<div class="lista-meses">
+					{meses.map((mes) => (
+						<MesCard mes={mes} />
+					))}
+				</div>
+			)
+		}
+	</div>
+</BaseLayout>
+
+<style>
+	.lista-meses {
+		display: grid;
+		gap: var(--espacio-3);
+	}
+
+	@media (min-width: 720px) {
+		.lista-meses {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (min-width: 1000px) {
+		.lista-meses {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+</style>

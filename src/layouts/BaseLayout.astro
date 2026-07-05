@@ -1,0 +1,299 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	titulo: string;
+	ocultarNav?: boolean;
+}
+
+const { titulo, ocultarNav = false } = Astro.props;
+const rutaActual = Astro.url.pathname;
+
+function activo(ruta: string) {
+	if (ruta === '/') return rutaActual === '/';
+	return rutaActual.startsWith(ruta);
+}
+---
+
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{titulo} · var-casa</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+			rel="stylesheet"
+		/>
+		<script is:inline>
+			// Se aplica antes del render para evitar parpadeo de tema.
+			try {
+				const guardado = localStorage.getItem('var-casa-theme');
+				if (guardado) document.documentElement.setAttribute('data-theme', guardado);
+			} catch {}
+		</script>
+	</head>
+	<body class:list={{ 'con-nav': !ocultarNav }}>
+		<header class="encabezado">
+			<a href="/" class="marca">var-casa</a>
+			<button id="boton-tema" class="boton-tema" type="button" aria-label="Cambiar tema">
+				<svg class="icono-sol" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+				<svg class="icono-luna" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+			</button>
+		</header>
+
+		<main class="contenido">
+			<slot />
+		</main>
+
+		{
+			!ocultarNav && (
+				<nav class="nav-principal" aria-label="Navegacion principal">
+					<span class="marca-nav" aria-hidden="true">var-casa</span>
+					<a href="/" class:list={{ activo: activo('/') }}>
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+						<span>Inicio</span>
+					</a>
+					<a href="/historico" class:list={{ activo: activo('/historico') }}>
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+						<span>Histórico</span>
+					</a>
+					<a href="/gastos/nuevo" class="nav-agregar" aria-label="Agregar gasto">
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+						<span class="etiqueta-agregar">Agregar gasto</span>
+					</a>
+					<a href="/configuracion" class:list={{ activo: activo('/configuracion') }}>
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+						<span>Ajustes</span>
+					</a>
+				</nav>
+			)
+		}
+
+		<script is:inline>
+			(function () {
+				const boton = document.getElementById('boton-tema');
+				if (!boton) return;
+				boton.addEventListener('click', () => {
+					const explicito = document.documentElement.getAttribute('data-theme');
+					const efectivo =
+						explicito ??
+						(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+					const siguiente = efectivo === 'light' ? 'dark' : 'light';
+					document.documentElement.setAttribute('data-theme', siguiente);
+					try {
+						localStorage.setItem('var-casa-theme', siguiente);
+					} catch {}
+				});
+			})();
+		</script>
+	</body>
+</html>
+
+<style>
+	.encabezado {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--espacio-4);
+		max-width: 640px;
+		margin: 0 auto;
+	}
+
+	.marca {
+		font-weight: 800;
+		font-size: 1.1rem;
+		text-decoration: none;
+		color: var(--color-text);
+	}
+
+	.boton-tema {
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
+		border-radius: 999px;
+		width: 38px;
+		height: 38px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-text-muted);
+		transition: color 0.15s ease, border-color 0.15s ease;
+	}
+
+	.boton-tema:hover {
+		color: var(--color-text);
+		border-color: var(--color-text-muted);
+	}
+
+	/* En oscuro se ofrece el sol (cambiar a claro); en claro, la luna. */
+	.icono-luna {
+		display: none;
+	}
+
+	:global(:root[data-theme='light']) .icono-luna {
+		display: block;
+	}
+
+	:global(:root[data-theme='light']) .icono-sol {
+		display: none;
+	}
+
+	@media (prefers-color-scheme: light) {
+		:global(:root:not([data-theme])) .icono-luna {
+			display: block;
+		}
+
+		:global(:root:not([data-theme])) .icono-sol {
+			display: none;
+		}
+	}
+
+	.contenido {
+		min-height: 100dvh;
+	}
+
+	body.con-nav .contenido {
+		padding-bottom: 96px;
+	}
+
+	/* ---------- Nav: barra inferior en mobile ---------- */
+
+	.nav-principal {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-around;
+		background: var(--color-bg-elevated);
+		border-top: 1px solid var(--color-border);
+		padding: var(--espacio-2) var(--espacio-2) max(var(--espacio-2), env(safe-area-inset-bottom));
+		z-index: 20;
+	}
+
+	.marca-nav {
+		display: none;
+	}
+
+	.nav-principal a {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		font-size: 0.7rem;
+		text-decoration: none;
+		color: var(--color-text-muted);
+		padding: var(--espacio-1) var(--espacio-2);
+		border-radius: var(--radio-chico);
+		transition: color 0.15s ease, background-color 0.15s ease;
+	}
+
+	.nav-principal a.activo {
+		color: var(--color-accent);
+	}
+
+	.nav-agregar {
+		background: var(--color-accent);
+		color: var(--color-text-on-accent) !important;
+		width: 52px;
+		height: 52px;
+		border-radius: 999px;
+		margin-top: -28px;
+		box-shadow: var(--sombra);
+		justify-content: center;
+	}
+
+	.nav-agregar .etiqueta-agregar {
+		display: none;
+	}
+
+	/* ---------- Nav: sidebar izquierdo en desktop ---------- */
+
+	@media (min-width: 900px) {
+		.nav-principal {
+			top: 0;
+			bottom: 0;
+			right: auto;
+			width: 224px;
+			flex-direction: column;
+			align-items: stretch;
+			justify-content: flex-start;
+			gap: var(--espacio-1);
+			border-top: none;
+			border-right: 1px solid var(--color-border);
+			padding: var(--espacio-5) var(--espacio-3);
+		}
+
+		.marca-nav {
+			display: block;
+			font-weight: 800;
+			font-size: 1.15rem;
+			padding: 0 14px;
+			margin-bottom: var(--espacio-5);
+		}
+
+		.nav-principal a {
+			flex-direction: row;
+			gap: var(--espacio-3);
+			font-size: 0.92rem;
+			font-weight: 500;
+			padding: 10px 14px;
+		}
+
+		.nav-principal a:hover {
+			color: var(--color-text);
+			background: var(--color-bg-elevated-2);
+		}
+
+		.nav-principal a.activo {
+			background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+			font-weight: 600;
+		}
+
+		.nav-agregar {
+			width: auto;
+			height: auto;
+			margin-top: var(--espacio-4);
+			border-radius: var(--radio-chico);
+			box-shadow: none;
+			justify-content: flex-start;
+			font-weight: 600 !important;
+		}
+
+		.nav-agregar:hover {
+			background: var(--color-accent-dim) !important;
+		}
+
+		.nav-agregar .etiqueta-agregar {
+			display: inline;
+			font-size: 0.92rem;
+		}
+
+		body.con-nav .encabezado,
+		body.con-nav .contenido {
+			margin-left: 224px;
+		}
+
+		.encabezado {
+			max-width: none;
+			margin: 0;
+			padding: var(--espacio-4) var(--espacio-6);
+		}
+
+		body.con-nav .encabezado {
+			justify-content: flex-end;
+		}
+
+		body.con-nav .encabezado .marca {
+			display: none;
+		}
+
+		body.con-nav .contenido {
+			padding-bottom: var(--espacio-6);
+		}
+	}
+</style>

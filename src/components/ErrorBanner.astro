@@ -1,0 +1,35 @@
+---
+interface Props {
+	mensaje: string;
+}
+const { mensaje } = Astro.props;
+---
+
+<div class="banner-error" role="alert">
+	<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="icono-alerta"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+	<p>{mensaje}</p>
+</div>
+
+<style>
+	.banner-error {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--espacio-2);
+		background: color-mix(in srgb, var(--color-danger) 15%, var(--color-bg-elevated));
+		border: 1px solid var(--color-danger);
+		border-radius: var(--radio-chico);
+		padding: var(--espacio-3) var(--espacio-4);
+		margin-bottom: var(--espacio-4);
+	}
+
+	.banner-error p {
+		margin: 0;
+		font-size: 0.9rem;
+	}
+
+	.icono-alerta {
+		color: var(--color-danger);
+		flex-shrink: 0;
+		margin-top: 2px;
+	}
+</style>

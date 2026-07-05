@@ -1,0 +1,45 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import FormularioGasto from '../../../components/FormularioGasto.astro';
+import ErrorBanner from '../../../components/ErrorBanner.astro';
+import { crearClienteApi, ApiError } from '../../../lib/api';
+import { mesReferenciaActual } from '../../../lib/format';
+import type { Categoria, Gasto } from '../../../lib/types';
+import { env } from 'cloudflare:workers';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const mes = Astro.url.searchParams.get('mes') ?? mesReferenciaActual();
+let categorias: Categoria[] = [];
+let gasto: Gasto | undefined;
+let error: string | null = null;
+
+if (!env.N8N_BASE_URL) {
+	error = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
+} else {
+	try {
+		const api = crearClienteApi(env.N8N_BASE_URL);
+		const [categoriasRes, gastosDelMes] = await Promise.all([
+			api.obtenerCategorias(),
+			api.obtenerGastos(mes),
+		]);
+		categorias = categoriasRes;
+		gasto = gastosDelMes.find((g) => String(g.id) === id);
+
+		if (!gasto) {
+			error = 'No se encontró el gasto (puede que sea de otro mes). Vuelve a intentarlo desde la lista del mes correspondiente.';
+		}
+	} catch (e) {
+		error = e instanceof ApiError ? e.message : 'No se pudo cargar el gasto.';
+	}
+}
+---
+
+<BaseLayout titulo="Editar gasto">
+	<div class="contenedor contenedor-angosto">
+		<h1>Editar gasto</h1>
+		{error && <ErrorBanner mensaje={error} />}
+		{!error && gasto && <FormularioGasto categorias={categorias} gasto={gasto} />}
+	</div>
+</BaseLayout>

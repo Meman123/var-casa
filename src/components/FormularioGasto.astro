@@ -1,0 +1,283 @@
+---
+import IconoCategoria from './IconoCategoria.astro';
+import { fechaHoy, normalizarFecha } from '../lib/format';
+import type { Categoria, Gasto } from '../lib/types';
+
+interface Props {
+	categorias: Categoria[];
+	gasto?: Gasto;
+}
+
+const { categorias, gasto } = Astro.props;
+const esEdicion = Boolean(gasto);
+
+const valores = {
+	categoria_id: gasto?.categoria_id ?? categorias[0]?.id ?? '',
+	descripcion: gasto?.descripcion ?? '',
+	monto: gasto?.monto ?? '',
+	fecha: normalizarFecha(gasto?.fecha) || fechaHoy(),
+	pagado_por: gasto?.pagado_por ?? 'meman',
+	split_meman: gasto?.split_meman ?? 50,
+};
+---
+
+<form id="form-gasto" data-modo={esEdicion ? 'editar' : 'crear'} data-id={gasto?.id ?? ''}>
+	<div class="campo">
+		<label for="categoria_id">Categoría</label>
+		<div class="selector-categoria">
+			<span id="preview-icono">
+				{
+					categorias.length > 0 && (
+						<IconoCategoria
+							icono={categorias.find((c) => c.id === valores.categoria_id)?.icono ?? 'tag'}
+							color={categorias.find((c) => c.id === valores.categoria_id)?.color ?? '#0f9d71'}
+						/>
+					)
+				}
+			</span>
+			<select id="categoria_id" name="categoria_id" required>
+				{categorias.map((c) => (
+					<option value={c.id} data-icono={c.icono} data-color={c.color} selected={c.id === valores.categoria_id}>
+						{c.nombre}
+					</option>
+				))}
+			</select>
+		</div>
+	</div>
+
+	<div class="campo">
+		<label for="descripcion">Descripción</label>
+		<input
+			id="descripcion"
+			name="descripcion"
+			type="text"
+			required
+			maxlength="120"
+			placeholder="Ej: Mercado de la semana"
+			value={valores.descripcion}
+		/>
+	</div>
+
+	<div class="fila">
+		<div class="campo">
+			<label for="monto">Monto (COP)</label>
+			<input id="monto" name="monto" type="number" inputmode="numeric" min="1" step="1" required value={valores.monto} />
+		</div>
+		<div class="campo">
+			<label for="fecha">Fecha</label>
+			<input id="fecha" name="fecha" type="date" required value={valores.fecha} />
+		</div>
+	</div>
+
+	<div class="campo">
+		<label for="pagado_por">¿Quién pagó?</label>
+		<select id="pagado_por" name="pagado_por" required>
+			<option value="meman" selected={valores.pagado_por === 'meman'}>Meman</option>
+			<option value="paya" selected={valores.pagado_por === 'paya'}>Paya</option>
+			<option value="conjunto" selected={valores.pagado_por === 'conjunto'}>Conjunto</option>
+		</select>
+	</div>
+
+	<div class="campo">
+		<label for="split_meman">
+			División: <span id="etiqueta-split">Meman {valores.split_meman}% · Paya {100 - Number(valores.split_meman)}%</span>
+		</label>
+		<input
+			id="split_meman"
+			name="split_meman"
+			type="range"
+			min="0"
+			max="100"
+			step="5"
+			value={valores.split_meman}
+		/>
+	</div>
+
+	<p id="mensaje-error-gasto" class="mensaje-error" hidden></p>
+
+	<div class="acciones">
+		<button type="submit" id="boton-guardar" class="boton boton-primario">
+			{esEdicion ? 'Guardar cambios' : 'Agregar gasto'}
+		</button>
+		{
+			esEdicion && (
+				<button type="button" id="boton-eliminar" class="boton boton-peligro">
+					Eliminar
+				</button>
+			)
+		}
+	</div>
+</form>
+
+<script>
+	import { svgIcono } from '../lib/iconos';
+
+	const formulario = document.getElementById('form-gasto') as HTMLFormElement;
+	const selectCategoria = document.getElementById('categoria_id') as HTMLSelectElement;
+	const previewIcono = document.getElementById('preview-icono') as HTMLSpanElement;
+	const rangoSplit = document.getElementById('split_meman') as HTMLInputElement;
+	const etiquetaSplit = document.getElementById('etiqueta-split') as HTMLSpanElement;
+	const botonGuardar = document.getElementById('boton-guardar') as HTMLButtonElement;
+	const botonEliminar = document.getElementById('boton-eliminar') as HTMLButtonElement | null;
+	const mensajeError = document.getElementById('mensaje-error-gasto') as HTMLParagraphElement;
+
+	function actualizarPreviewCategoria() {
+		const opcion = selectCategoria.selectedOptions[0];
+		if (!opcion) return;
+		const icono = opcion.dataset.icono ?? 'tag';
+		const color = opcion.dataset.color ?? '#0f9d71';
+		previewIcono.innerHTML = `<span class="burbuja-preview" style="background:color-mix(in srgb, ${color} 22%, transparent);color:${color};">${svgIcono(icono)}</span>`;
+	}
+
+	function actualizarEtiquetaSplit() {
+		const meman = Number(rangoSplit.value);
+		etiquetaSplit.textContent = `Meman ${meman}% · Paya ${100 - meman}%`;
+	}
+
+	selectCategoria.addEventListener('change', actualizarPreviewCategoria);
+	rangoSplit.addEventListener('input', actualizarEtiquetaSplit);
+
+	function mostrarError(mensaje: string) {
+		mensajeError.textContent = mensaje;
+		mensajeError.hidden = false;
+	}
+
+	formulario.addEventListener('submit', async (evento) => {
+		evento.preventDefault();
+		mensajeError.hidden = true;
+		botonGuardar.disabled = true;
+		const textoOriginal = botonGuardar.textContent;
+		botonGuardar.textContent = 'Guardando…';
+
+		const datos = new FormData(formulario);
+		const splitMeman = Number(datos.get('split_meman'));
+		const cuerpo = {
+			categoria_id: Number(datos.get('categoria_id')),
+			descripcion: String(datos.get('descripcion')),
+			monto: Number(datos.get('monto')),
+			fecha: String(datos.get('fecha')),
+			pagado_por: String(datos.get('pagado_por')),
+			split_meman: splitMeman,
+			split_paya: 100 - splitMeman,
+		};
+
+		const modo = formulario.dataset.modo;
+		const id = formulario.dataset.id;
+
+		try {
+			const respuesta = await fetch('/api/gastos', {
+				method: modo === 'editar' ? 'PUT' : 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(modo === 'editar' ? { id: Number(id), ...cuerpo } : cuerpo),
+			});
+			const json = await respuesta.json().catch(() => ({}));
+			if (!respuesta.ok) {
+				throw new Error(json.error ?? 'No se pudo guardar el gasto.');
+			}
+			// Micro-confirmación antes de volver al inicio.
+			botonGuardar.textContent = 'Guardado ✓';
+			botonGuardar.classList.add('boton-exito');
+			setTimeout(() => {
+				window.location.href = '/?gasto=ok';
+			}, 450);
+		} catch (error) {
+			mostrarError(error instanceof Error ? error.message : 'Error inesperado.');
+			botonGuardar.disabled = false;
+			botonGuardar.textContent = textoOriginal;
+		}
+	});
+
+	botonEliminar?.addEventListener('click', async () => {
+		if (!confirm('¿Eliminar este gasto? Esta acción no se puede deshacer.')) return;
+		const id = formulario.dataset.id;
+		botonEliminar.disabled = true;
+		try {
+			const respuesta = await fetch(`/api/gastos?id=${id}`, { method: 'DELETE' });
+			if (!respuesta.ok) {
+				const json = await respuesta.json().catch(() => ({}));
+				throw new Error(json.error ?? 'No se pudo eliminar el gasto.');
+			}
+			window.location.href = '/?gasto=eliminado';
+		} catch (error) {
+			mostrarError(error instanceof Error ? error.message : 'Error inesperado.');
+			botonEliminar.disabled = false;
+		}
+	});
+</script>
+
+<style>
+	.campo {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin-bottom: var(--espacio-4);
+	}
+
+	.fila {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--espacio-3);
+	}
+
+	label {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	input,
+	select {
+		background: var(--color-bg-elevated-2);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radio-chico);
+		padding: 12px 14px;
+		width: 100%;
+	}
+
+	input[type='range'] {
+		padding: 0;
+		accent-color: var(--color-accent);
+	}
+
+	.selector-categoria {
+		display: flex;
+		align-items: center;
+		gap: var(--espacio-3);
+	}
+
+	/* El preview se re-inyecta via innerHTML, por eso es :global. */
+	.selector-categoria :global(.burbuja-preview) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 999px;
+		flex-shrink: 0;
+	}
+
+	.selector-categoria :global(.burbuja-preview svg) {
+		width: 22px;
+		height: 22px;
+	}
+
+	:global(.boton-exito) {
+		background: var(--color-accent) !important;
+		opacity: 1 !important;
+	}
+
+	.selector-categoria select {
+		flex: 1;
+	}
+
+	.mensaje-error {
+		color: var(--color-danger);
+		font-size: 0.85rem;
+	}
+
+	.acciones {
+		display: flex;
+		flex-direction: column;
+		gap: var(--espacio-2);
+	}
+</style>
