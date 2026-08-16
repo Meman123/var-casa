@@ -15,9 +15,19 @@
 	--color-text-muted: #a89e97;
 	--color-text-on-accent: #08150f;
 
+	/* Superficies glass: semitransparentes + blur, para tarjetas y nav
+	   estilo fintech/neobanco. Se combinan con --color-border (también
+	   suavizado) y requieren backdrop-filter en el elemento que las use. */
+	--color-glass: rgba(38, 34, 30, 0.6);
+	--color-glass-borde: rgba(255, 255, 255, 0.08);
+	--desenfoque-glass: blur(16px);
+
 	--radio: 14px;
 	--radio-chico: 8px;
-	--sombra: 0 4px 16px rgba(0, 0, 0, 0.25);
+	/* Sombra amplia y suave, estilo Apple/Stripe: capa de contacto cercana
+	   + halo lejano y difuso, en vez de un solo bloque duro. */
+	--sombra: 0 2px 4px rgba(0, 0, 0, 0.12), 0 16px 40px -12px rgba(0, 0, 0, 0.35);
+	--sombra-suave: 0 1px 2px rgba(0, 0, 0, 0.08), 0 24px 48px -16px rgba(0, 0, 0, 0.28);
 
 	--espacio-1: 4px;
 	--espacio-2: 8px;
@@ -40,6 +50,11 @@
 	--color-text-muted: #7a7069;
 	--color-text-on-accent: #f3fff9;
 
+	--color-glass: rgba(255, 255, 255, 0.6);
+	--color-glass-borde: rgba(20, 16, 12, 0.08);
+	--sombra: 0 2px 4px rgba(20, 16, 12, 0.05), 0 16px 40px -14px rgba(20, 16, 12, 0.18);
+	--sombra-suave: 0 1px 2px rgba(20, 16, 12, 0.04), 0 24px 48px -18px rgba(20, 16, 12, 0.14);
+
 	color-scheme: light;
 }
 
@@ -52,6 +67,11 @@
 		--color-text: #2a2420;
 		--color-text-muted: #7a7069;
 		--color-text-on-accent: #f3fff9;
+
+		--color-glass: rgba(255, 255, 255, 0.6);
+		--color-glass-borde: rgba(20, 16, 12, 0.08);
+		--sombra: 0 2px 4px rgba(20, 16, 12, 0.05), 0 16px 40px -14px rgba(20, 16, 12, 0.18);
+		--sombra-suave: 0 1px 2px rgba(20, 16, 12, 0.04), 0 24px 48px -18px rgba(20, 16, 12, 0.14);
 
 		color-scheme: light;
 	}
@@ -68,7 +88,14 @@ body {
 }
 
 body {
-	background: var(--color-bg);
+	/* Base solida + dos brillos radiales sutiles (arriba-izquierda y
+	   abajo-derecha) en el color de acento. Sin esto el backdrop-filter
+	   de las tarjetas glass no tiene nada de color detras que desenfocar
+	   y el efecto pasa desapercibido. */
+	background:
+		radial-gradient(ellipse 900px 600px at 12% -10%, color-mix(in srgb, var(--color-accent) 22%, transparent), transparent 65%),
+		radial-gradient(ellipse 900px 700px at 90% 110%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 65%),
+		var(--color-bg);
 	color: var(--color-text);
 	font-family: var(--fuente);
 	font-size: 16px;
@@ -77,6 +104,30 @@ body {
 	/* Cifras tabulares: los montos alinean bien en listas y tablas. */
 	font-variant-numeric: tabular-nums;
 	transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Entrada suave del contenido: evita que la pagina "aparezca de golpe".
+   Se anima el contenedor de contenido, no el body completo, para no
+   afectar elementos fijos (nav inferior/lateral, overlays). */
+.contenido {
+	animation: fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.contenido {
+		animation: none;
+	}
 }
 
 h1,
@@ -123,10 +174,22 @@ button {
 }
 
 .tarjeta {
-	background: var(--color-bg-elevated);
-	border: 1px solid var(--color-border);
+	background: var(--color-glass);
+	border: 1px solid var(--color-glass-borde);
 	border-radius: var(--radio);
 	padding: var(--espacio-4);
+	box-shadow: var(--sombra-suave);
+	backdrop-filter: var(--desenfoque-glass);
+	-webkit-backdrop-filter: var(--desenfoque-glass);
+}
+
+/* Fallback: si el navegador no soporta backdrop-filter, se pierde el
+   desenfoque pero la tarjeta recupera un fondo solido (evita transparencia
+   fea sobre el body). */
+@supports not (backdrop-filter: blur(1px)) {
+	.tarjeta {
+		background: var(--color-bg-elevated);
+	}
 }
 
 .boton {

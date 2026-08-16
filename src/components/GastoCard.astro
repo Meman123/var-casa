@@ -6,9 +6,14 @@ import type { Gasto } from '../lib/types';
 interface Props {
 	gasto: Gasto;
 	enlazable?: boolean;
+	mesCerrado?: boolean;
 }
 
-const { gasto, enlazable = true } = Astro.props;
+const { gasto, enlazable = true, mesCerrado = false } = Astro.props;
+
+// Si el mes está cerrado, el gasto nunca debe ser enlazable (no editable),
+// sin importar lo que se haya pasado en `enlazable`.
+const esEnlazable = mesCerrado ? false : enlazable;
 
 const etiquetaPagador: Record<string, string> = {
 	meman: 'Meman',
@@ -18,8 +23,10 @@ const etiquetaPagador: Record<string, string> = {
 ---
 
 <a
-	href={enlazable ? `/gastos/${gasto.id}/editar?mes=${gasto.mes_referencia}` : undefined}
-	class:list={['gasto', { 'no-enlace': !enlazable }]}
+	href={esEnlazable ? `/gastos/${gasto.id}/editar?mes=${gasto.mes_referencia}` : undefined}
+	class:list={['gasto', { 'no-enlace': !esEnlazable, 'mes-cerrado': mesCerrado }]}
+	aria-disabled={mesCerrado ? 'true' : undefined}
+	title={mesCerrado ? 'Mes cerrado: no se puede editar' : undefined}
 >
 	<IconoCategoria icono={gasto.icono} color={gasto.color} />
 	<div class="info">
@@ -29,9 +36,31 @@ const etiquetaPagador: Record<string, string> = {
 		</p>
 	</div>
 	<span class="monto">{formatearMonto(gasto.monto)}</span>
+	{
+		mesCerrado && (
+			<svg
+				class="icono-candado"
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+				<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+			</svg>
+		)
+	}
 </a>
 
 <style>
+	/* Layout tipo historial bancario: ícono fijo a la izquierda, info
+	   (descripción + fecha) apilada y flexible al centro, monto anclado
+	   a la derecha sin encogerse nunca. */
 	.gasto {
 		display: flex;
 		align-items: center;
@@ -41,8 +70,16 @@ const etiquetaPagador: Record<string, string> = {
 		color: var(--color-text);
 	}
 
+	.gasto > :global(*:first-child) {
+		flex: 0 0 auto;
+	}
+
 	.gasto.no-enlace {
 		pointer-events: none;
+	}
+
+	.gasto.mes-cerrado {
+		opacity: 0.6;
 	}
 
 	@media (hover: hover) {
@@ -59,8 +96,10 @@ const etiquetaPagador: Record<string, string> = {
 	}
 
 	.info {
-		flex: 1;
+		flex: 1 1 auto;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.descripcion {
@@ -78,8 +117,15 @@ const etiquetaPagador: Record<string, string> = {
 	}
 
 	.monto {
-		font-weight: 700;
-		font-size: 0.92rem;
+		flex: 0 0 auto;
+		font-weight: 800;
+		font-size: 0.95rem;
 		white-space: nowrap;
+		margin-left: auto;
+	}
+
+	.icono-candado {
+		flex: 0 0 auto;
+		color: var(--color-text-muted);
 	}
 </style>

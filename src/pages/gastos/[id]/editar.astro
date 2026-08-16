@@ -17,21 +17,26 @@ const mesConsulta = mesParam ?? mesReferenciaActual();
 let categorias: Categoria[] = [];
 let gasto: Gasto | undefined;
 let error: string | null = null;
+let mesCerrado = false;
 
 if (!env.N8N_BASE_URL) {
 	error = 'La app no esta configurada correctamente (falta N8N_BASE_URL).';
 } else {
 	try {
 		const api = crearClienteApi(env.N8N_BASE_URL);
-		const [categoriasRes, gastosDelMes] = await Promise.all([
+		const [categoriasRes, gastosDelMes, meses] = await Promise.all([
 			api.obtenerCategorias(),
 			api.obtenerGastos(mesConsulta),
+			api.obtenerMeses(),
 		]);
 		categorias = categoriasRes;
 		gasto = gastosDelMes.find((g) => String(g.id) === id);
+		mesCerrado = meses.find((m) => m.mes_referencia === mesConsulta)?.estado === 'cerrado';
 
 		if (!gasto) {
 			error = 'No se encontró el gasto (puede que sea de otro mes). Vuelve a intentarlo desde la lista del mes correspondiente.';
+		} else if (mesCerrado) {
+			error = 'Este mes ya está cerrado. No puedes editar sus gastos.';
 		}
 	} catch (e) {
 		error = e instanceof ApiError ? e.message : 'No se pudo cargar el gasto.';
@@ -43,6 +48,6 @@ if (!env.N8N_BASE_URL) {
 	<div class="contenedor contenedor-angosto">
 		<h1>Editar gasto</h1>
 		{error && <ErrorBanner mensaje={error} />}
-		{!error && gasto && <FormularioGasto categorias={categorias} gasto={gasto} mes={mesParam ?? undefined} />}
+		{!error && !mesCerrado && gasto && <FormularioGasto categorias={categorias} gasto={gasto} mes={mesParam ?? undefined} />}
 	</div>
 </BaseLayout>

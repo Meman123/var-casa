@@ -14,12 +14,14 @@ const pagaPaya = diferencia_meman > 0;
 const monto = Math.abs(diferencia_meman);
 ---
 
-<div class="tarjeta tarjeta-balance">
-	<p class="etiqueta texto-muted">Balance del mes</p>
+<div class="tarjeta-balance">
+	<div class="brillo" aria-hidden="true"></div>
+
+	<p class="etiqueta">Balance del mes</p>
 
 	{
 		aPaz ? (
-			<p class="frase">Están a paz y salvo ✓</p>
+			<p class="frase-paz">Están a paz y salvo ✓</p>
 		) : (
 			<>
 				<p class="monto-grande">{formatearMonto(monto)}</p>
@@ -32,50 +34,84 @@ const monto = Math.abs(diferencia_meman);
 
 	<div class="totales">
 		<div>
-			<span class="texto-muted">Meman pagó</span>
+			<span>Meman pagó</span>
 			<strong>{formatearMonto(pagado_meman)}</strong>
 		</div>
 		<div>
-			<span class="texto-muted">Paya pagó</span>
+			<span>Paya pagó</span>
 			<strong>{formatearMonto(pagado_paya)}</strong>
 		</div>
 		<div>
-			<span class="texto-muted">Total del mes</span>
+			<span>Total del mes</span>
 			<strong>{formatearMonto(total_gastado)}</strong>
 		</div>
 	</div>
 </div>
 
 <style>
+	/* Widget tipo tarjeta de credito: gradiente oscuro fijo (no depende del
+	   tema claro/oscuro, igual que una tarjeta fisica), con texto claro. */
 	.tarjeta-balance {
+		position: relative;
+		overflow: hidden;
 		text-align: center;
+		border-radius: var(--radio);
+		padding: var(--espacio-5) var(--espacio-4) var(--espacio-4);
+		background: linear-gradient(155deg, color-mix(in srgb, var(--color-accent) 55%, #0a0f0c) 0%, #14110f 55%, #0b0a09 100%);
+		color: #f7f4ef;
+		box-shadow: var(--sombra);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	/* Reflejo sutil, como el brillo de una tarjeta fisica bajo la luz. */
+	.brillo {
+		position: absolute;
+		inset: -40% -20% auto auto;
+		width: 60%;
+		height: 140%;
+		background: radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 45%, transparent), transparent 70%);
+		opacity: 0.5;
+		pointer-events: none;
 	}
 
 	.etiqueta {
-		font-size: 0.8rem;
+		position: relative;
+		font-size: 0.78rem;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.08em;
 		margin-bottom: var(--espacio-2);
+		color: rgba(247, 244, 239, 0.65);
 	}
 
 	.monto-grande {
-		font-size: 2.6rem;
+		position: relative;
+		font-size: 3.2rem;
 		font-weight: 800;
 		margin: 0;
-		letter-spacing: -0.02em;
+		letter-spacing: -0.03em;
+		line-height: 1.05;
 	}
 
 	.frase {
-		margin: 4px 0 var(--espacio-4);
-		color: var(--color-text-muted);
+		position: relative;
+		margin: 6px 0 var(--espacio-5);
+		color: rgba(247, 244, 239, 0.7);
 		font-weight: 500;
 	}
 
+	.frase-paz {
+		position: relative;
+		margin: var(--espacio-2) 0 var(--espacio-5);
+		font-size: 1.4rem;
+		font-weight: 700;
+	}
+
 	.totales {
+		position: relative;
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: var(--espacio-2);
-		border-top: 1px solid var(--color-border);
+		border-top: 1px solid rgba(255, 255, 255, 0.14);
 		padding-top: var(--espacio-3);
 	}
 
@@ -87,9 +123,11 @@ const monto = Math.abs(diferencia_meman);
 
 	.totales span {
 		font-size: 0.72rem;
+		color: rgba(247, 244, 239, 0.6);
 	}
 
 	.totales strong {
-		font-size: 0.95rem;
+		font-size: 1rem;
+		font-weight: 700;
 	}
 </style>

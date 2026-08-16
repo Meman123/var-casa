@@ -28,7 +28,7 @@ if (!env.N8N_BASE_URL) {
 		api.obtenerMeses(),
 	]);
 
-	if (rGastos.status === 'fulfilled') gastos = rGastos.value;
+	if (rGastos.status === 'fulfilled') gastos = rGastos.value || [];
 	if (rBalance.status === 'fulfilled') balance = rBalance.value;
 	if (rMeses.status === 'fulfilled') mesInfo = rMeses.value.find((m) => m.mes_referencia === mesReferencia);
 
@@ -129,7 +129,7 @@ const hayDeuda = Math.round(balanceSeguro.diferencia_meman) !== 0;
 									</span>
 								</div>
 								{grupo.gastos.map((g) => (
-									<GastoCard gasto={g} />
+									<GastoCard gasto={g} mesCerrado={estadoMes === 'cerrado'} />
 								))}
 							</div>
 						))}
@@ -137,7 +137,7 @@ const hayDeuda = Math.round(balanceSeguro.diferencia_meman) !== 0;
 
 					<div id="vista-cronologico" hidden>
 						{gastosCronologicos.map((g) => (
-							<GastoCard gasto={g} />
+							<GastoCard gasto={g} mesCerrado={estadoMes === 'cerrado'} />
 						))}
 					</div>
 				</section>

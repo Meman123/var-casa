@@ -7,7 +7,7 @@ import StreakBadge from '../components/StreakBadge.astro';
 import ErrorBanner from '../components/ErrorBanner.astro';
 import { crearClienteApi, ApiError } from '../lib/api';
 import { calcularRacha } from '../lib/streak';
-import { mesReferenciaActual, capitalizar, formatearMesReferencia } from '../lib/format';
+import { mesReferenciaActual, capitalizar, formatearMesReferencia, formatearMonto } from '../lib/format';
 import type { Balance, Gasto, Mes, PresupuestoCategoria } from '../lib/types';
 import { env } from 'cloudflare:workers';
 
@@ -34,9 +34,9 @@ if (!env.N8N_BASE_URL) {
 	]);
 
 	if (rBalance.status === 'fulfilled') balance = rBalance.value;
-	if (rPresupuestos.status === 'fulfilled') presupuestos = rPresupuestos.value;
-	if (rGastos.status === 'fulfilled') gastos = rGastos.value;
-	if (rMeses.status === 'fulfilled') meses = rMeses.value;
+	if (rPresupuestos.status === 'fulfilled') presupuestos = rPresupuestos.value || [];
+	if (rGastos.status === 'fulfilled') gastos = rGastos.value || [];
+	if (rMeses.status === 'fulfilled') meses = rMeses.value || [];
 
 	const primerError = [rBalance, rPresupuestos, rGastos, rMeses].find(
 		(r) => r.status === 'rejected',
@@ -96,6 +96,22 @@ const toast = mensajesToast[Astro.url.searchParams.get('gasto') ?? ''] ?? null;
 			<div class="col">
 				{balance && <BalanceCard balance={balance} />}
 
+				<section class="tarjeta tarjeta-grafico">
+					<h2>Gastos por categoría</h2>
+					<div class="contenedor-grafico">
+						<canvas id="grafico-categorias" role="img" aria-label="Distribución de gastos por categoría"></canvas>
+					</div>
+					{
+						presupuestosConDatos.length > 0 && (
+							<ul class="leyenda-grafico visualmente-oculto">
+								{presupuestosConDatos.map((p) => (
+									<li>{p.nombre}: {formatearMonto(p.gastado)}</li>
+								))}
+							</ul>
+						)
+					}
+				</section>
+
 				{
 					presupuestosConDatos.length > 0 && (
 						<section class="tarjeta">
@@ -138,6 +154,103 @@ const toast = mensajesToast[Astro.url.searchParams.get('gasto') ?? ''] ?? null;
 	</div>
 </BaseLayout>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script is:inline define:vars={{ presupuestos: presupuestosConDatos }}>
+	// Donut de gastos por categoría, con datos reales inyectados desde el
+	// servidor via define:vars. Si no hay presupuestos con datos, se dibuja
+	// una dona gris de relleno con un plugin que centra el texto "Sin datos"
+	// en vez de dejar la tarjeta en blanco.
+	document.addEventListener('DOMContentLoaded', () => {
+		if (typeof Chart === 'undefined') return;
+
+		const lienzo = document.getElementById('grafico-categorias');
+		if (!lienzo) return;
+
+		const estilos = getComputedStyle(document.documentElement);
+		const colorTexto = estilos.getPropertyValue('--color-text-muted').trim() || '#a89e97';
+		const colorSuperficie = estilos.getPropertyValue('--color-bg-elevated').trim() || '#262220';
+		const colorSinDatos = '#302b28';
+
+		const hayDatos = Array.isArray(presupuestos) && presupuestos.length > 0;
+
+		// .map() sobre los datos reales del servidor para armar las series
+		// del gráfico: nombres, montos gastados y colores por categoría.
+		const etiquetas = hayDatos ? presupuestos.map((p) => p.nombre) : ['Sin datos'];
+		const valores = hayDatos ? presupuestos.map((p) => p.gastado) : [1];
+		const colores = hayDatos ? presupuestos.map((p) => p.color) : [colorSinDatos];
+
+		// Plugin de Chart.js que dibuja un texto centrado en el hueco de la
+		// dona cuando no hay datos reales que mostrar.
+		const pluginSinDatos = {
+			id: 'texto-sin-datos',
+			afterDraw(chart) {
+				if (hayDatos) return;
+				const { ctx, chartArea } = chart;
+				const cx = (chartArea.left + chartArea.right) / 2;
+				const cy = (chartArea.top + chartArea.bottom) / 2;
+				ctx.save();
+				ctx.fillStyle = colorTexto;
+				ctx.font = '600 14px Inter, system-ui, sans-serif';
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'middle';
+				ctx.fillText('Sin datos', cx, cy);
+				ctx.restore();
+			},
+		};
+
+		new Chart(lienzo, {
+			type: 'doughnut',
+			data: {
+				labels: etiquetas,
+				datasets: [
+					{
+						data: valores,
+						backgroundColor: colores,
+						borderColor: colorSuperficie,
+						borderWidth: 2,
+						hoverOffset: hayDatos ? 6 : 0,
+					},
+				],
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				cutout: '68%',
+				animation: hayDatos ? undefined : false,
+				plugins: {
+					legend: {
+						display: hayDatos,
+						position: 'bottom',
+						labels: {
+							color: colorTexto,
+							boxWidth: 10,
+							boxHeight: 10,
+							padding: 14,
+							font: { size: 12 },
+						},
+					},
+					tooltip: {
+						enabled: hayDatos,
+						callbacks: {
+							label: (contexto) => {
+								const valor = Number(contexto.parsed) || 0;
+								const formateado = new Intl.NumberFormat('es-CO', {
+									style: 'currency',
+									currency: 'COP',
+									maximumFractionDigits: 0,
+								}).format(valor);
+								return ` ${contexto.label}: ${formateado}`;
+							},
+						},
+					},
+				},
+			},
+			plugins: [pluginSinDatos],
+		});
+	});
+</script>
+
 <style>
 	.mes-actual {
 		text-transform: capitalize;
@@ -163,6 +276,20 @@ const toast = mensajesToast[Astro.url.searchParams.get('gasto') ?? ''] ?? null;
 
 	.tarjeta h2 {
 		font-size: 1rem;
+	}
+
+	.tarjeta-grafico {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.contenedor-grafico {
+		position: relative;
+		height: 260px;
+		margin: 0 auto;
+		width: 100%;
+		max-width: 320px;
 	}
 
 	.cabecera-seccion {
